@@ -1,9 +1,7 @@
 defmodule GmailPoller do
   require Logger
 
-  def process_key(key) do
-    Logger.info "Processing #{key.id}"
-
+  def process_key(key=%GmailKey{}) do
     {fun, args} = case Email.latest_email_for_user(key.user_id) do
       nil -> {:load_inbox, [key]}
       %Email{history_id: history_id} -> {:load_history, [key, history_id]}
@@ -13,18 +11,24 @@ defmodule GmailPoller do
       {:ok, _res, messages, key} ->
         process_messages(key, messages)
         {:ok, key}
-      {:error, response} ->
-        Logger.error "Failed to process #{key.id}"
-        IO.inspect response
+      {:error, :response, response} ->
+        Logger.error "Failed to process #{key.id} with response: #{inspect(response)}"
         {:error, response, key}
+      error={:error, reason} ->
+        Logger.error "Failed to process #{key.id} with reason: #{inspect(error)}"
+        {:error, reason, key}
     end
   end
 
-  defp process_messages(key, messages) do
-    # non_present_ids = messages
-    # |> Enum.map(&(&1["id"]))
-    # |> Email.non_present_gmail_ids
 
+  defp sync_inbox(key) do
+  end
+
+  defp sync_history(key, history_id) do
+  end
+
+
+  defp process_messages(key, messages) do
     for message <- messages do
       email = %Email{
         gmail_id: message["id"],
@@ -81,7 +85,8 @@ defmodule GmailPoller do
           {:ok, key} -> load_history(key, starting_after, false)
           {:error, response} -> {:error, response}
         end
-      response -> {:error, response}
+      {:error, reason} -> {:error, reason}
+      response -> {:error, :response, response}
     end
   end
 

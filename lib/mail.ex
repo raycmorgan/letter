@@ -14,14 +14,20 @@ defmodule Letter do
     children = [
       worker(Repo, []),
       worker(Plug.Adapters.Cowboy, [SimpleServer, [], [port: port]], function: :http),
-      # supervisor(Letter.Sync.NodeSupervisor, [])
-      supervisor(Letter.Sync.VNodeSupervisor, [])
+      supervisor(Letter.Sync.Supervisor, [])
     ]
 
     # See http://elixir-lang.org/docs/stable/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Letter.Supervisor]
-    Supervisor.start_link(children, opts)
+    {:ok, sup_pid} = Supervisor.start_link(children, opts)
+    
+    start_all_pollers
+    {:ok, sup_pid}
+  end
+
+  def start_all_pollers do
+    for key <- Repo.all(GmailKey), do: Letter.Sync.Supervisor.start_child(key)
   end
 end
 
